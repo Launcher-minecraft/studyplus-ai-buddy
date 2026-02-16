@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,27 +8,10 @@ import {
   Users, FileText, Key, BarChart3, Trash2, Shield, Crown, Download,
   Copy, CheckCircle2,
 } from "lucide-react";
-
-// Mock data
-const mockStats = {
-  totalUsers: 1247,
-  totalSheets: 8934,
-  premiumUsers: 89,
-  vipUsers: 23,
-  sheetsToday: 156,
-};
-
-const mockUsers = [
-  { id: "1", name: "Alice Martin", email: "alice@email.com", role: "user", status: "premium", sheetsCount: 45 },
-  { id: "2", name: "Lucas Dupont", email: "lucas@email.com", role: "user", status: "free", sheetsCount: 12 },
-  { id: "3", name: "Emma Bernard", email: "emma@email.com", role: "user", status: "vip", sheetsCount: 78 },
-  { id: "4", name: "Admin", email: "admin@studyplus.com", role: "admin", status: "vip", sheetsCount: 0 },
-];
-
-const mockVipKeys = [
-  { key: "VIP-XXXX-1234", used: false, createdAt: "2026-02-14" },
-  { key: "VIP-XXXX-5678", used: true, usedBy: "emma@email.com", createdAt: "2026-02-10" },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const statusBadge = (status: string) => {
   switch (status) {
@@ -42,14 +24,121 @@ const statusBadge = (status: string) => {
   }
 };
 
+interface AdminUser {
+  user_id: string;
+  first_name: string | null;
+  subscription_status: string;
+  email?: string;
+  role?: string;
+  sheets_count?: number;
+}
+
+interface VipKey {
+  id: string;
+  key: string;
+  used: boolean;
+  used_by: string | null;
+  created_at: string;
+}
+
 export default function Admin() {
+  const { user, isAdmin } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [allSheets, setAllSheets] = useState<any[]>([]);
+  const [vipKeys, setVipKeys] = useState<VipKey[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [stats, setStats] = useState({ totalUsers: 0, totalSheets: 0, premiumUsers: 0, vipUsers: 0, sheetsToday: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { navigate("/login"); return; }
+    if (!isAdmin) { navigate("/dashboard"); return; }
+    loadData();
+  }, [user, isAdmin]);
+
+  const loadData = async () => {
+    // Load profiles
+    const { data: profiles } = await supabase.from("profiles").select("*");
+    // Load all sheets
+    const { data: sheets } = await supabase.from("sheets").select("*").order("created_at", { ascending: false });
+    // Load vip keys
+    const { data: keys } = await supabase.from("vip_keys").select("*").order("created_at", { ascending: false });
+    // Load roles
+    const { data: roles } = await supabase.from("user_roles").select("*");
+
+    const today = new Date().toISOString().split("T")[0];
+
+    if (profiles) {
+      const usersData = profiles.map((p: any) => ({
+        user_id: p.user_id,
+        first_name: p.first_name,
+        subscription_status: p.subscription_status,
+        role: roles?.find((r: any) => r.user_id === p.user_id)?.role || "user",
+        sheets_count: sheets?.filter((s: any) => s.user_id === p.user_id).length || 0,
+      }));
+      setUsers(usersData);
+      setStats({
+        totalUsers: profiles.length,
+        totalSheets: sheets?.length || 0,
+        premiumUsers: profiles.filter((p: any) => p.subscription_status === "premium").length,
+        vipUsers: profiles.filter((p: any) => p.subscription_status === "vip").length,
+        sheetsToday: sheets?.filter((s: any) => s.created_at?.startsWith(today)).length || 0,
+      });
+    }
+    if (sheets) setAllSheets(sheets);
+    if (keys) setVipKeys(keys as VipKey[]);
+    setLoading(false);
+  };
+
+  const generateVipKeys = async () => {
+    const keys = Array.from({ length: 5 }, () => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      const rand = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+      return `VIP-${rand(4)}-${rand(4)}`;
+    });
+
+    for (const key of keys) {
+      await supabase.from("vip_keys").insert({ key });
+    }
+    toast({ title: "Clés générées", description: "5 nouvelles clés VIP créées." });
+    loadData();
+  };
+
+  const changeRole = async (userId: string, newRole: string) => {
+    if (newRole === "admin") {
+      await supabase.from("user_roles").upsert({ user_id: userId, role: "admin" as any }, { onConflict: "user_id,role" });
+    } else {
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
+    }
+    toast({ title: "Rôle mis à jour" });
+    loadData();
+  };
+
+  const deleteSheet = async (sheetId: string) => {
+    await supabase.from("sheets").delete().eq("id", sheetId);
+    toast({ title: "Fiche supprimée" });
+    loadData();
+  };
 
   const copyKey = (key: string) => {
     navigator.clipboard.writeText(key);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
   };
+
+  const exportCsv = () => {
+    const csv = "Prénom,Statut,Rôle,Fiches\n" +
+      users.map((u) => `${u.first_name || ""},${u.subscription_status},${u.role},${u.sheets_count}`).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "users.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) return <div className="min-h-screen bg-background pt-24 text-center text-muted-foreground">Chargement...</div>;
 
   return (
     <div className="min-h-screen bg-background pt-24 pb-12 px-4">
@@ -65,14 +154,13 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
             {[
-              { label: "Utilisateurs", value: mockStats.totalUsers, icon: Users },
-              { label: "Fiches générées", value: mockStats.totalSheets, icon: FileText },
-              { label: "Premium", value: mockStats.premiumUsers, icon: Crown },
-              { label: "VIP", value: mockStats.vipUsers, icon: Shield },
-              { label: "Fiches aujourd'hui", value: mockStats.sheetsToday, icon: BarChart3 },
+              { label: "Utilisateurs", value: stats.totalUsers, icon: Users },
+              { label: "Fiches générées", value: stats.totalSheets, icon: FileText },
+              { label: "Premium", value: stats.premiumUsers, icon: Crown },
+              { label: "VIP", value: stats.vipUsers, icon: Shield },
+              { label: "Fiches aujourd'hui", value: stats.sheetsToday, icon: BarChart3 },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl border border-border bg-card p-4">
                 <stat.icon className="h-4 w-4 text-primary mb-2" />
@@ -82,7 +170,6 @@ export default function Admin() {
             ))}
           </div>
 
-          {/* Tabs */}
           <Tabs defaultValue="users">
             <TabsList className="bg-muted mb-6">
               <TabsTrigger value="users">Utilisateurs</TabsTrigger>
@@ -104,34 +191,24 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody>
-                      {mockUsers.map((user) => (
-                        <tr key={user.id} className="border-b border-border last:border-0">
+                      {users.map((u) => (
+                        <tr key={u.user_id} className="border-b border-border last:border-0">
                           <td className="p-3">
-                            <p className="font-medium">{user.name}</p>
-                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                            <p className="font-medium">{u.first_name || "Sans nom"}</p>
                           </td>
                           <td className="p-3">
-                            <Badge variant={user.role === "admin" ? "default" : "secondary"} className="text-xs">
-                              {user.role}
-                            </Badge>
+                            <Badge variant={u.role === "admin" ? "default" : "secondary"} className="text-xs">{u.role}</Badge>
                           </td>
-                          <td className="p-3">{statusBadge(user.status)}</td>
-                          <td className="p-3 text-muted-foreground">{user.sheetsCount}</td>
+                          <td className="p-3">{statusBadge(u.subscription_status)}</td>
+                          <td className="p-3 text-muted-foreground">{u.sheets_count}</td>
                           <td className="p-3 text-right">
-                            <div className="flex justify-end gap-1">
-                              <Select defaultValue={user.role}>
-                                <SelectTrigger className="h-8 w-24 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="user">user</SelectItem>
-                                  <SelectItem value="admin">admin</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
+                            <Select defaultValue={u.role} onValueChange={(v) => changeRole(u.user_id, v)}>
+                              <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="user">user</SelectItem>
+                                <SelectItem value="admin">admin</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </td>
                         </tr>
                       ))}
@@ -140,17 +217,30 @@ export default function Admin() {
                 </div>
               </div>
               <div className="flex justify-end mt-4">
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4" />
-                  Export CSV
+                <Button variant="outline" size="sm" onClick={exportCsv}>
+                  <Download className="h-4 w-4" />Export CSV
                 </Button>
               </div>
             </TabsContent>
 
             <TabsContent value="sheets">
-              <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
-                <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                <p>Les fiches seront affichées ici une fois le backend connecté.</p>
+              <div className="space-y-3">
+                {allSheets.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+                    <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p>Aucune fiche générée.</p>
+                  </div>
+                ) : allSheets.map((sheet) => (
+                  <div key={sheet.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{sheet.title}</p>
+                      <p className="text-xs text-muted-foreground">{sheet.subject} • {sheet.level} • {new Date(sheet.created_at).toLocaleDateString("fr-FR")}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteSheet(sheet.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </TabsContent>
 
@@ -158,23 +248,18 @@ export default function Admin() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-display font-semibold">Clés VIP</h3>
-                  <Button variant="neon" size="sm">
-                    <Key className="h-4 w-4" />
-                    Générer des clés
+                  <Button variant="neon" size="sm" onClick={generateVipKeys}>
+                    <Key className="h-4 w-4" />Générer 5 clés
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {mockVipKeys.map((vk) => (
-                    <div
-                      key={vk.key}
-                      className={`rounded-lg border p-3 flex items-center justify-between ${
-                        vk.used ? "border-border bg-muted/20 opacity-60" : "border-primary/30 bg-primary/5"
-                      }`}
-                    >
+                  {vipKeys.map((vk) => (
+                    <div key={vk.id}
+                      className={`rounded-lg border p-3 flex items-center justify-between ${vk.used ? "border-border bg-muted/20 opacity-60" : "border-primary/30 bg-primary/5"}`}>
                       <div>
                         <code className="text-sm font-mono">{vk.key}</code>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {vk.used ? `Utilisée par ${vk.usedBy}` : "Disponible"} • {new Date(vk.createdAt).toLocaleDateString("fr-FR")}
+                          {vk.used ? "Utilisée" : "Disponible"} • {new Date(vk.created_at).toLocaleDateString("fr-FR")}
                         </p>
                       </div>
                       {!vk.used && (
@@ -184,6 +269,7 @@ export default function Admin() {
                       )}
                     </div>
                   ))}
+                  {vipKeys.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Aucune clé VIP générée.</p>}
                 </div>
               </div>
             </TabsContent>

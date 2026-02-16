@@ -1,18 +1,31 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookOpen, Mail, Lock, ArrowRight } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Connect to backend
+    setLoading(true);
+    const { error } = await signIn(email, password);
+    setLoading(false);
+    if (error) {
+      toast({ title: "Erreur de connexion", description: error.message, variant: "destructive" });
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   return (
@@ -20,11 +33,7 @@ export default function Login() {
       <div className="absolute top-20 left-1/3 w-72 h-72 rounded-full bg-primary/8 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-20 right-1/3 w-72 h-72 rounded-full bg-secondary/8 blur-[120px] pointer-events-none" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-neon-bg">
@@ -41,14 +50,7 @@ export default function Login() {
             <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="ton@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10"
-              />
+              <Input id="email" type="email" placeholder="ton@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" required />
             </div>
           </div>
 
@@ -56,28 +58,19 @@ export default function Login() {
             <Label htmlFor="password">Mot de passe</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10"
-              />
+              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10" required />
             </div>
           </div>
 
-          <Button variant="neon" type="submit" className="w-full">
-            Se connecter
+          <Button variant="neon" type="submit" className="w-full" disabled={loading}>
+            {loading ? "Connexion..." : "Se connecter"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Pas encore de compte ?{" "}
-          <Link to="/register" className="text-primary hover:underline font-medium">
-            S'inscrire
-          </Link>
+          <Link to="/register" className="text-primary hover:underline font-medium">S'inscrire</Link>
         </p>
       </motion.div>
     </div>
