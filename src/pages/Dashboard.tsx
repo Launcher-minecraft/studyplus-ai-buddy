@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Zap, BookOpen, FileText, Layers, Sparkles } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Zap, BookOpen, FileText, Layers, Sparkles, Crown, Key, CreditCard, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,9 @@ export default function Dashboard() {
   const [genType, setGenType] = useState("single");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [vipKey, setVipKey] = useState("");
+  const [activatingVip, setActivatingVip] = useState(false);
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -100,6 +104,40 @@ export default function Dashboard() {
     }
   };
 
+  const handleActivateVip = async () => {
+    if (!vipKey.trim()) return;
+    setActivatingVip(true);
+    try {
+      // Find the key
+      const { data: keyData, error: findError } = await supabase
+        .from("vip_keys")
+        .select("id")
+        .eq("key", vipKey.trim())
+        .eq("used", false)
+        .single();
+
+      if (findError || !keyData) {
+        toast({ title: "Clé invalide", description: "Cette clé VIP est invalide ou déjà utilisée.", variant: "destructive" });
+        setActivatingVip(false);
+        return;
+      }
+
+      // Mark key as used
+      await supabase.from("vip_keys").update({ used: true, used_by: user!.id }).eq("id", keyData.id);
+
+      // Upgrade profile
+      await supabase.from("profiles").update({ subscription_status: "vip" }).eq("user_id", user!.id);
+
+      await refreshProfile();
+      setVipKey("");
+      setShowUpgrade(false);
+      toast({ title: "VIP activé ! 🎉", description: "Tu as maintenant un accès illimité." });
+    } catch {
+      toast({ title: "Erreur", description: "Impossible d'activer la clé.", variant: "destructive" });
+    }
+    setActivatingVip(false);
+  };
+
   return (
     <div className="min-h-screen bg-background pt-24 pb-12 px-4">
       <div className="absolute top-32 left-1/4 w-72 h-72 rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
@@ -114,6 +152,29 @@ export default function Dashboard() {
             <h1 className="font-display text-3xl font-bold mb-2">Générer des fiches</h1>
             <p className="text-muted-foreground">Choisis ta matière, ton niveau et ton sujet.</p>
           </div>
+
+          {/* Upgrade banner for free users */}
+          {isFree && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-4 flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-neon-bg shrink-0">
+                  <Crown className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Passe en illimité</p>
+                  <p className="text-xs text-muted-foreground">Premium à 1,99€/mois ou active une clé VIP</p>
+                </div>
+              </div>
+              <Button variant="neon" size="sm" onClick={() => setShowUpgrade(true)}>
+                <Zap className="h-3.5 w-3.5" />
+                Upgrader
+              </Button>
+            </motion.div>
+          )}
 
           <div className="rounded-xl border border-border bg-card p-6 space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -176,6 +237,71 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Upgrade Dialog */}
+      <Dialog open={showUpgrade} onOpenChange={setShowUpgrade}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Passer en illimité</DialogTitle>
+            <DialogDescription>Choisis ton option pour générer des fiches sans limite.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Premium option */}
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-neon-bg">
+                  <CreditCard className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Premium</p>
+                  <p className="text-xs text-muted-foreground">1,99€/mois — fiches illimitées</p>
+                </div>
+              </div>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-primary" /> Générations illimitées</li>
+                <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-primary" /> Tous les types de fiches</li>
+                <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-primary" /> Support prioritaire</li>
+              </ul>
+              <Button variant="neon" className="w-full" onClick={() => {
+                toast({ title: "Bientôt disponible", description: "Le paiement Stripe sera bientôt intégré." });
+              }}>
+                <CreditCard className="h-4 w-4" />
+                S'abonner — 1,99€/mois
+              </Button>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">ou</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* VIP key */}
+            <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
+                  <Key className="h-4 w-4 text-accent-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Clé VIP</p>
+                  <p className="text-xs text-muted-foreground">Active une clé pour un accès illimité</p>
+                </div>
+              </div>
+              <Input
+                placeholder="Entre ta clé VIP..."
+                value={vipKey}
+                onChange={(e) => setVipKey(e.target.value)}
+              />
+              <Button variant="outline" className="w-full" onClick={handleActivateVip} disabled={activatingVip || !vipKey.trim()}>
+                <Key className="h-4 w-4" />
+                {activatingVip ? "Activation..." : "Activer la clé"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
