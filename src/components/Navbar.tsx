@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Menu, X, Zap, LogOut, Shield } from "lucide-react";
+import { BookOpen, Menu, X, Zap, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,11 +47,12 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {user ? (
             <>
-              {profile && (
-                <span className="text-xs text-muted-foreground">
-                  {profile.first_name || "Utilisateur"}
-                </span>
-              )}
+              <Link to="/profile">
+                <Button variant="ghost" size="sm">
+                  <User className="h-4 w-4" />
+                  {profile?.first_name || "Profil"}
+                </Button>
+              </Link>
               <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut className="h-4 w-4" />
                 Déconnexion
