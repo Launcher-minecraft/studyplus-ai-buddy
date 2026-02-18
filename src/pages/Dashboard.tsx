@@ -108,25 +108,26 @@ export default function Dashboard() {
     if (!vipKey.trim()) return;
     setActivatingVip(true);
     try {
-      // Find the key
-      const { data: keyData, error: findError } = await supabase
-        .from("vip_keys")
-        .select("id")
-        .eq("key", vipKey.trim())
-        .eq("used", false)
-        .single();
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/activate-vip`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ key: vipKey.trim() }),
+        }
+      );
 
-      if (findError || !keyData) {
-        toast({ title: "Clé invalide", description: "Cette clé VIP est invalide ou déjà utilisée.", variant: "destructive" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast({ title: "Clé invalide", description: data.error || "Cette clé VIP est invalide ou déjà utilisée.", variant: "destructive" });
         setActivatingVip(false);
         return;
       }
-
-      // Mark key as used
-      await supabase.from("vip_keys").update({ used: true, used_by: user!.id }).eq("id", keyData.id);
-
-      // Upgrade profile
-      await supabase.from("profiles").update({ subscription_status: "vip" }).eq("user_id", user!.id);
 
       await refreshProfile();
       setVipKey("");
