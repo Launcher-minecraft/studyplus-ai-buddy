@@ -2,3 +2,6 @@ project_id = "rphvbmtvbmcwnzterqjx"
 
 [functions.generate-sheet]
 verify_jwt = false
+
+[functions.activate-vip]
+verify_jwt = false
