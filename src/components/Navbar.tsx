@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BookOpen, Menu, X, Zap, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -44,7 +45,8 @@ export function Navbar() {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
+          <ThemeToggle />
           {user ? (
             <>
               <Link to="/profile">
@@ -82,7 +84,8 @@ export function Navbar() {
               {item.label}
             </Link>
           ))}
-          <div className="flex gap-2 pt-3">
+          <div className="flex gap-2 pt-3 items-center">
+            <ThemeToggle />
             {user ? (
               <Button variant="ghost" size="sm" className="w-full" onClick={() => { signOut(); setMobileOpen(false); }}>
                 <LogOut className="h-4 w-4" />Déconnexion
