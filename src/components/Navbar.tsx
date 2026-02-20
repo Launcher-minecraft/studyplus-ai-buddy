@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { BookOpen, Menu, X, Zap, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -17,6 +18,7 @@ export function Navbar() {
       { label: "Dashboard", path: "/dashboard" },
       { label: "Historique", path: "/history" },
     ] : []),
+    { label: "Tarifs", path: "/pricing" },
     ...(isAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
 
@@ -47,6 +49,7 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-2">
           <ThemeToggle />
+          {user && <NotificationCenter />}
           {user ? (
             <>
               <Link to="/profile">
