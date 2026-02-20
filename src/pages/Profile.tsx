@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Crown, Calendar, FileText, ArrowLeft, Lock } from "lucide-react";
+import { User, Mail, Crown, Calendar, FileText, ArrowLeft, Lock, Pencil, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,17 +17,41 @@ const subscriptionLabels: Record<string, { label: string; variant: "default" | "
 };
 
 export default function Profile() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate("/login");
   }, [user, loading, navigate]);
 
   if (loading || !user || !profile) return null;
+
+  const handleEditName = () => {
+    setFirstName(profile.first_name || "");
+    setEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    setSavingName(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ first_name: firstName.trim() })
+      .eq("user_id", user.id);
+    setSavingName(false);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+    } else {
+      toast.success("Prénom mis à jour");
+      await refreshProfile();
+      setEditingName(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {
@@ -64,9 +88,29 @@ export default function Profile() {
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full gradient-neon-bg">
               <User className="h-10 w-10 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl font-display">
-              {profile.first_name || "Utilisateur"}
-            </CardTitle>
+            {editingName ? (
+              <div className="flex items-center gap-2 justify-center">
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="max-w-[180px] text-center"
+                  autoFocus
+                />
+                <Button size="icon" variant="ghost" onClick={handleSaveName} disabled={savingName}>
+                  <Check className="h-4 w-4 text-primary" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => setEditingName(false)}>
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
+            ) : (
+              <CardTitle className="text-2xl font-display flex items-center gap-2 justify-center">
+                {profile.first_name || "Utilisateur"}
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleEditName}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </CardTitle>
+            )}
             <Badge className={`mt-2 ${profile.subscription_status === "vip" ? "bg-amber-500 text-white" : ""}`} variant={sub.variant}>
               <Crown className="h-3 w-3 mr-1" />
               {sub.label}

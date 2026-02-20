@@ -128,63 +128,27 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Pricing CTA */}
       <section className="py-24 px-4">
-        <div className="container mx-auto">
+        <div className="container mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
           >
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
               Tarifs <span className="gradient-neon-text">simples</span>
             </h2>
+            <p className="text-muted-foreground max-w-md mx-auto mb-8">
+              Commence gratuitement, passe en illimité quand tu veux.
+            </p>
+            <Link to="/pricing">
+              <Button variant="neon" size="lg">
+                <Zap className="h-5 w-5" />
+                Voir les tarifs
+              </Button>
+            </Link>
           </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Free */}
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h3 className="font-display text-lg font-semibold mb-1">Gratuit</h3>
-              <p className="text-3xl font-display font-bold mb-4">0€</p>
-              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                <li>✓ 3 fiches par jour</li>
-                <li>✓ Historique basique</li>
-                <li>✓ Toutes les matières</li>
-              </ul>
-              <Link to="/register">
-                <Button variant="outline" className="w-full">Commencer</Button>
-              </Link>
-            </div>
-
-            {/* Premium */}
-            <div className="rounded-xl border border-primary/50 bg-card p-6 relative glow-cyan">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 gradient-neon-bg text-primary-foreground text-xs font-display font-semibold px-3 py-1 rounded-full">
-                Populaire
-              </div>
-              <h3 className="font-display text-lg font-semibold mb-1">Premium</h3>
-              <p className="text-3xl font-display font-bold mb-1">1,99€<span className="text-sm text-muted-foreground font-normal">/mois</span></p>
-              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                <li>✓ Fiches illimitées</li>
-                <li>✓ Téléchargement PDF</li>
-                <li>✓ Chapitres complets</li>
-                <li>✓ Support prioritaire</li>
-              </ul>
-              <Button variant="neon" className="w-full">S'abonner</Button>
-            </div>
-
-            {/* VIP */}
-            <div className="rounded-xl border border-secondary/50 bg-card p-6">
-              <h3 className="font-display text-lg font-semibold mb-1">VIP</h3>
-              <p className="text-3xl font-display font-bold mb-1">Clé<span className="text-sm text-muted-foreground font-normal ml-2">d'activation</span></p>
-              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                <li>✓ Tout Premium</li>
-                <li>✓ Badge VIP exclusif</li>
-                <li>✓ Accès anticipé</li>
-              </ul>
-              <Button variant="outline" className="w-full border-secondary/50 text-secondary hover:bg-secondary/10">Activer une clé</Button>
-            </div>
-          </div>
         </div>
       </section>
 
