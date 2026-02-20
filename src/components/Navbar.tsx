@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Menu, X, Zap, LogOut, User } from "lucide-react";
+import { BookOpen, Menu, X, Zap, LogOut, User, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationCenter } from "@/components/NotificationCenter";
@@ -56,6 +56,11 @@ export function Navbar() {
                 <Button variant="ghost" size="sm">
                   <User className="h-4 w-4" />
                   {profile?.first_name || "Profil"}
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Settings className="h-4 w-4" />
                 </Button>
               </Link>
               <Button variant="ghost" size="sm" onClick={signOut}>

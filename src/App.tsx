@@ -14,6 +14,7 @@ import History from "./pages/History";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import Pricing from "./pages/Pricing";
+import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/admin" element={<Admin />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
